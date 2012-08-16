@@ -1,0 +1,7 @@
+khan-exercises/
+output/
+secrets.py
+.status
+*.py[co]
+Vagrantfile
+.vagrant
