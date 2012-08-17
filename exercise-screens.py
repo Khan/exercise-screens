@@ -101,7 +101,7 @@ def worker(queue):
             rev_list = popen_results(["git", "rev-list", "--reverse", "HEAD"])
             before = rev_list.split()[0]
         if after is None:
-            # if not specified, before is the latest commit
+            # if not specified, after is the latest commit
             after = popen_results(["git", "rev-parse", "HEAD"])[:-1]
         # check out the latest revision to operate on
         if popen_return_code(["git", "checkout", after]):
