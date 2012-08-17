@@ -30,7 +30,7 @@ REPO_URL = "https://github.com/Khan/khan-exercises"
 REPO_GIT_URL = "%s.git" % REPO_URL
 REPO = REPO_URL.split("/")[-1]
 RENDER_TIMEOUT_MS = 20000
-S3_BUCKET = "ka-exercise-screens"
+S3_BUCKET = "ka-exercise-screenshots"
 PORT = 5000
 GITHUB_WEBHOOK_IPS = ["207.97.227.253", "50.57.128.197", "108.171.174.178"]
 
@@ -179,6 +179,7 @@ def update(exercise):
     key = boto.s3.key.Key(bucket)
     key.key = img_name
     key.set_contents_from_filename(img_path)
+    key.set_acl("public-read")
 
 
 def main():
