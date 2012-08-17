@@ -11,6 +11,9 @@ import sys
 import boto
 from flask import Flask
 from flask import abort, request
+from tornado.wsgi import WSGIContainer
+from tornado.httpserver import HTTPServer
+from tornado.ioloop import IOLoop
 
 try:
     from secrets import AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY
@@ -194,8 +197,10 @@ def main():
     # queue up a backfill job
     queue.put((last_processed, None))
 
-    # run the Flask app
-    app.run(port=PORT)
+    # run the Flask app using Tornado
+    # http://flask.pocoo.org/docs/deploying/wsgi-standalone/#tornado
+    HTTPServer(WSGIContainer(app)).listen(PORT)
+    IOLoop.instance().start()
 
 
 if __name__ == "__main__":
