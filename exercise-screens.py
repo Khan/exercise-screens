@@ -112,7 +112,7 @@ def worker(queue):
         for exercise in exercises_to_update:
             update(exercise)
         # mark the last commit processed
-        with open(".status", "w") as outfile:
+        with open("../.status", "w") as outfile:
             outfile.write(after)
 
 
