@@ -138,7 +138,7 @@ def plan_updates(before, after):
     for f in os.listdir("exercises"):
         if os.path.splitext(f)[-1] == ".html":
             # ignore khan-*.html
-            if "khan" not in path:
+            if "khan" not in f:
                 all_exercises.add("exercises/%s" % f)
 
     diff = popen_results(["git", "diff", "--name-status", before, after])
