@@ -185,6 +185,9 @@ def update(exercise):
 
 
 def main():
+    # cd to exercise-screens repo so everything else can be relative
+    os.chdir(os.path.split(__file__)[0])
+
     # start the worker subprocess
     queue = multiprocessing.Queue()
     worker_subprocess = multiprocessing.Process(target=worker, args=(queue,))
