@@ -38,13 +38,13 @@ GITHUB_WEBHOOK_IPS = ["207.97.227.253", "50.57.128.197", "108.171.174.178"]
 app = Flask(__name__, static_folder=REPO)
 
 
-@app.route("/")
+@app.route("/exercise-screens")
 def status():
     # TODO(dylan): provide more detailed status information
     return "ok"
 
 
-@app.route("/hook", methods=["POST"])
+@app.route("/exercise-screens/hook", methods=["POST"])
 def hook():
     # verify hook authenticity
     if request.remote_addr not in GITHUB_WEBHOOK_IPS:
@@ -164,7 +164,7 @@ def plan_updates(before, after):
 
 def update(exercise):
     """Creates a screenshot of the exercise and updates it on S3."""
-    url = "http://localhost:%s/%s/%s" % (PORT, REPO, exercise)
+    url = "http://localhost:%s/exercise-screens/%s/%s" % (PORT, REPO, exercise)
     exercise_name = os.path.splitext(os.path.split(exercise)[-1])[0]
 
     print "Updating", exercise_name
