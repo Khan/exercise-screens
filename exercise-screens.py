@@ -186,7 +186,9 @@ def update(exercise):
 
 def main():
     # cd to exercise-screens repo so everything else can be relative
-    os.chdir(os.path.split(__file__)[0])
+    dir = os.path.split(__file__)[0]
+    if dir != '':
+        os.chdir(dir)
 
     # start the worker subprocess
     queue = multiprocessing.Queue()
