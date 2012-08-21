@@ -10,7 +10,7 @@ import sys
 
 import boto
 from flask import Flask
-from flask import abort, request
+from flask import abort, request, send_from_directory
 from tornado.wsgi import WSGIContainer
 from tornado.httpserver import HTTPServer
 from tornado.ioloop import IOLoop
@@ -35,13 +35,18 @@ PORT = 5000
 GITHUB_WEBHOOK_IPS = ["207.97.227.253", "50.57.128.197", "108.171.174.178"]
 
 
-app = Flask(__name__, static_folder=REPO)
+app = Flask(__name__)
 
 
 @app.route("/exercise-screens")
 def status():
     # TODO(dylan): provide more detailed status information
     return "ok"
+
+
+@app.route("/exercise-screens/exercise-file/<path:filename>")
+def exercise_file(filename):
+    return send_from_directory(REPO, filename)
 
 
 @app.route("/exercise-screens/hook", methods=["POST"])
@@ -164,7 +169,7 @@ def plan_updates(before, after):
 
 def update(exercise):
     """Creates a screenshot of the exercise and updates it on S3."""
-    url = "http://localhost:%s/exercise-screens/%s/%s" % (PORT, REPO, exercise)
+    url = "http://localhost:%s/exercise-screens/exercise-file/%s" % (PORT, exercise)
     exercise_name = os.path.splitext(os.path.split(exercise)[-1])[0]
 
     print "Updating", exercise_name
