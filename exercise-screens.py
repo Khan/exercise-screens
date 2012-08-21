@@ -32,6 +32,7 @@ REPO = REPO_URL.split("/")[-1]
 RENDER_TIMEOUT_MS = 20000
 S3_BUCKET = "ka-exercise-screenshots"
 PORT = 5000
+SMALL_DIMENSION = 256
 GITHUB_WEBHOOK_IPS = ["207.97.227.253", "50.57.128.197", "108.171.174.178"]
 
 
@@ -175,18 +176,36 @@ def update(exercise):
     print "Updating", exercise_name
 
     img_name = "%s.png" % exercise_name
+    resized_img_name = "%s_256.png" % exercise_name
     img_path = "../output/%s" % img_name
+    resized_img_path = "../output/%s" % resized_img_name
     phantomjs_output = popen_results(
         ["phantomjs", "../rasterize.js", url, img_path, str(RENDER_TIMEOUT_MS)])
     if phantomjs_output != "Done\n":
         print phantomjs_output
+        return
+
+    # resize and crop image
+    # see http://www.imagemagick.org/Usage/thumbnails/#cut
+    resize_arg = "%sx%s^" % (SMALL_DIMENSION, SMALL_DIMENSION)
+    extent_arg = "%sx%s" % (SMALL_DIMENSION, SMALL_DIMENSION)
+    if popen_return_code(["convert", "-resize", resize_arg, \
+        "-extent", extent_arg, img_path, resized_img_path]):
+        print "imagemagick error"
+        return
 
     s3 = boto.connect_s3(AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY)
     bucket = s3.create_bucket(S3_BUCKET)
-    key = boto.s3.key.Key(bucket)
-    key.key = img_name
-    key.set_contents_from_filename(img_path)
-    key.set_acl("public-read")
+    # upload full-size image
+    fullsize_key = boto.s3.key.Key(bucket)
+    fullsize_key.key = img_name
+    fullsize_key.set_contents_from_filename(img_path)
+    fullsize_key.set_acl("public-read")
+    # upload resized and cropped image
+    resized_key = boto.s3.key.Key(bucket)
+    resized_key.key = resized_img_name
+    resized_key.set_contents_from_filename(resized_img_path)
+    resized_key.set_acl("public-read")
 
 
 def main():
