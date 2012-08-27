@@ -51,35 +51,27 @@ def exercise_file(filename):
 
 @app.route("/exercise-screens/hook", methods=["POST"])
 def hook():
+    """Receive a web hook from GitHub.
+
+    The request must originate from GitHub.com, be valid JSON, and
+    pertain to the khan-exercises repository.
+
+    Payload format: https://help.github.com/articles/post-receive-hooks
+    """
     # verify hook authenticity
     if request.remote_addr not in GITHUB_WEBHOOK_IPS:
         abort(403)
     # verify payload authenticity
     try:
         payload = json.loads(request.args.get("payload"))
-    except:
+    except (TypeError, ValueError):
         abort(400)
     if payload["repository"]["url"] != REPO_URL:
         abort(403)
     # enqueue job for processing
-    queue.put((payload["before"], payload["after"]))
+    # queue is a global multiprocessing.Queue created in the main method below
+    queue.put((payload["before"], payload["after"])) # @Nolint
     return "ok"
-
-
-def popen_results(args):
-    # from the deploy script
-    # TODO(dylan): use subprocess.check_call instead?
-    proc = subprocess.Popen(args, stdout=subprocess.PIPE)
-    return proc.communicate()[0]
-
-
-def popen_return_code(args, input=None):
-    # from the deploy script
-    # TODO(dylan): use subprocess.check_call instead?
-    proc = subprocess.Popen(args, stdin=subprocess.PIPE,
-                            stdout=subprocess.PIPE)
-    proc.communicate(input)
-    return proc.returncode
 
 
 def worker(queue):
@@ -91,26 +83,23 @@ def worker(queue):
         if os.path.exists(REPO):
             # if a clone of the repo already exists, update it
             os.chdir(REPO)
-            if popen_return_code(["git", "checkout", "master"]):
-                sys.exit(1)
-            if popen_return_code(["git", "pull"]):
-                sys.exit(1)
+            subprocess.check_call(["git", "checkout", "master"])
+            subprocess.check_call(["git", "pull"])
         else:
             # make a clone of the repository
-            if popen_return_code(["git", "clone", REPO_GIT_URL]):
-                sys.exit(1)
+            subprocess.check_call(["git", "clone", REPO_GIT_URL])
             os.chdir(REPO)
         # determine the correct commit range
         if before is None:
             # if not specified, before is the earliest commit
-            rev_list = popen_results(["git", "rev-list", "--reverse", "HEAD"])
+            rev_list = subprocess.check_output(
+                ["git", "rev-list", "--reverse", "HEAD"])
             before = rev_list.split()[0]
         if after is None:
             # if not specified, after is the latest commit
-            after = popen_results(["git", "rev-parse", "HEAD"])[:-1]
+            after = subprocess.check_output(["git", "rev-parse", "HEAD"])[:-1]
         # check out the latest revision to operate on
-        if popen_return_code(["git", "checkout", after]):
-            sys.exit(1)
+        subprocess.check_call(["git", "checkout", after])
         # get a list of exercises to update
         exercises_to_update = plan_updates(before, after)
         # perform the updates
@@ -119,6 +108,11 @@ def worker(queue):
         # mark the last commit processed
         with open("../.status", "w") as outfile:
             outfile.write(after)
+
+
+def ignored_exercise(exercise):
+    """Ignore khan-*.html in the exercises folder, they aren't exercises."""
+    return "khan" in exercise
 
 
 def plan_updates(before, after):
@@ -141,26 +135,28 @@ def plan_updates(before, after):
 
     all_exercises = set()
     for f in os.listdir("exercises"):
-        if os.path.splitext(f)[-1] == ".html":
-            # ignore khan-*.html
-            if "khan" not in f:
-                all_exercises.add("exercises/%s" % f)
+        if f.endswith(".html"):
+            if not ignored_exercise(f):
+                all_exercises.add(os.path.join("exercises", f))
 
-    diff = popen_results(["git", "diff", "--name-status", before, after])
+    # look at what files have changed in the commit range
+    #
+    # --name-status tells us each file's name and whether it was added (A),
+    # modified (M), or deleted (D)
+    diff = subprocess.check_output(
+        ["git", "diff", "--name-status", before, after])
     diff = [line.split() for line in diff.split("\n")[:-1]]
 
-    global_res = [r".*\.js", r"css/.*\.css", r"css/images/.*", r"images/.*"]
-    global_res = [re.compile(r) for r in global_res]
+    global_re = re.compile(r".*\.js|css/.*\.css|css/images/.*|images/.*")
     exercise_re = re.compile(r"exercises/.*\.html")
     util_re = re.compile(r"utils/.*\.js")
 
     for code, path in diff:
-        if code in ["A", "M", "D"] and any(
-                [r.match(path) for r in global_res]):
+        # A = add, M = modify, D = delete
+        if code in ["A", "M", "D"] and global_re.match(path):
             return all_exercises
         if code in ["A", "M"] and exercise_re.match(path):
-            # ignore khan-*.html
-            if "khan" not in path:
+            if not ignored_exercise(path):
                 to_update.add(path)
         if code in ["M"] and util_re.match(path):
             return all_exercises
@@ -170,7 +166,8 @@ def plan_updates(before, after):
 
 def update(exercise):
     """Creates a screenshot of the exercise and updates it on S3."""
-    url = "http://localhost:%s/exercise-screens/exercise-file/%s" % (PORT, exercise)
+    url = "http://localhost:%s/exercise-screens/exercise-file/%s" % (
+        PORT, exercise)
     exercise_name = os.path.splitext(os.path.split(exercise)[-1])[0]
 
     print "Updating", exercise_name
@@ -179,7 +176,7 @@ def update(exercise):
     resized_img_name = "%s_256.png" % exercise_name
     img_path = "../output/%s" % img_name
     resized_img_path = "../output/%s" % resized_img_name
-    phantomjs_output = popen_results(
+    phantomjs_output = subprocess.check_output(
         ["phantomjs", "../rasterize.js",
             url, img_path, str(RENDER_TIMEOUT_MS)])
     if phantomjs_output != "Done\n":
@@ -190,10 +187,8 @@ def update(exercise):
     # see http://www.imagemagick.org/Usage/thumbnails/#cut
     resize_arg = "%sx%s^" % (SMALL_DIMENSION, SMALL_DIMENSION)
     extent_arg = "%sx%s" % (SMALL_DIMENSION, SMALL_DIMENSION)
-    if popen_return_code(["convert", "-resize", resize_arg, \
-        "-extent", extent_arg, img_path, resized_img_path]):
-        print "imagemagick error"
-        return
+    subprocess.check_call(["convert", "-resize", resize_arg, \
+        "-extent", extent_arg, img_path, resized_img_path])
 
     s3 = boto.connect_s3(AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY)
     bucket = s3.create_bucket(S3_BUCKET)
@@ -211,7 +206,7 @@ def update(exercise):
 
 def main():
     # cd to exercise-screens repo so everything else can be relative
-    dir = os.path.split(__file__)[0]
+    dir = os.path.dirname(os.path.abspath(__file__))
     if dir != '':
         os.chdir(dir)
 
