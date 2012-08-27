@@ -2,7 +2,6 @@
 
 import json
 import multiprocessing
-import optparse
 import os
 import re
 import subprocess
@@ -156,7 +155,8 @@ def plan_updates(before, after):
     util_re = re.compile(r"utils/.*\.js")
 
     for code, path in diff:
-        if code in ["A", "M", "D"] and any([r.match(path) for r in global_res]):
+        if code in ["A", "M", "D"] and any(
+                [r.match(path) for r in global_res]):
             return all_exercises
         if code in ["A", "M"] and exercise_re.match(path):
             # ignore khan-*.html
@@ -180,7 +180,8 @@ def update(exercise):
     img_path = "../output/%s" % img_name
     resized_img_path = "../output/%s" % resized_img_name
     phantomjs_output = popen_results(
-        ["phantomjs", "../rasterize.js", url, img_path, str(RENDER_TIMEOUT_MS)])
+        ["phantomjs", "../rasterize.js",
+            url, img_path, str(RENDER_TIMEOUT_MS)])
     if phantomjs_output != "Done\n":
         print phantomjs_output
         return
