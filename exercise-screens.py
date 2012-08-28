@@ -33,6 +33,7 @@ the Flask app.
 An overview of the control flow:
 1. Someone pushes to master on the khan-exercises GitHub repo.
 2. GitHub POSTs to exercise-screens with information about the latest changes
+     (see https://help.github.com/articles/post-receive-hooks)
 3. exercise-screens pulls the changes into its local copy of khan-exercises
      and figures out what exercises changed since the last time it ran.
 4. For each of the exercises that changed, exercise-screens takes a new
@@ -62,6 +63,9 @@ PORT = 5000
 # The resized thumbnails will be this many x this many pixels.
 SMALL_DIMENSION = 256
 # This is a whitelist of IP addresses that official GitHub web hooks come from.
+# The list comes from the web hook details GitHub provides at
+# https://github.com/Khan/khan-exercises/admin/hooks#generic_minibucket
+# (must be repository admin to view).
 GITHUB_WEBHOOK_IPS = ["207.97.227.253", "50.57.128.197", "108.171.174.178"]
 
 
@@ -119,16 +123,18 @@ def worker(queue):
             # make a clone of the repository
             subprocess.check_call(["git", "clone", REPO_GIT_URL])
             os.chdir(REPO)
-        # grab a chronological list of commits to find the oldest and newest
-        rev_list = subprocess.check_output(["git", "rev-list", "HEAD"]).split()
-        oldest_commit, newest_commit = rev_list[-1], rev_list[0]
-        # determine the correct commit range
-        if before is None:
-            # if not specified, before is the oldest commit to master
-            before = oldest_commit
-        if after is None:
-            # if not specified, after is the newest commit to master
-            after = newest_commit
+        if before is None or after is None:
+            # grab chronological list of commits to find the oldest and newest
+            rev_list = subprocess.check_output(
+                ["git", "rev-list", "HEAD"]).split()
+            oldest_commit, newest_commit = rev_list[-1], rev_list[0]
+            # determine the correct commit range
+            if before is None:
+                # if not specified, before is the oldest commit to master
+                before = oldest_commit
+            if after is None:
+                # if not specified, after is the newest commit to master
+                after = newest_commit
         # check out the latest revision to operate on
         subprocess.check_call(["git", "checkout", after])
         # get a list of exercises to update
@@ -141,7 +147,7 @@ def worker(queue):
             outfile.write(after)
 
 
-def is_ignored_exercise(exercise):
+def should_ignore_exercise(exercise):
     """Ignore khan-*.html in the exercises folder, they aren't exercises."""
     return not exercise.endswith(".html") or "khan" in exercise
 
@@ -157,8 +163,8 @@ def plan_updates(before, after):
     need to be updated
 
     Arguments:
-        before: SHA1 of first commit in range
-        after: SHA1 of last commit in range
+        before: SHA1 of the oldest commit in the push received by GitHub
+        after: SHA1 of the newest commit in the push received by GitHub
     Returns:
         set of exercise filenames to update
     """
@@ -166,7 +172,7 @@ def plan_updates(before, after):
 
     all_exercises = set()
     for f in os.listdir("exercises"):
-        if not is_ignored_exercise(f):
+        if not should_ignore_exercise(f):
             all_exercises.add(os.path.join("exercises", f))
 
     # look at what files have changed in the commit range
@@ -186,7 +192,7 @@ def plan_updates(before, after):
         if code in ["A", "M", "D"] and global_re.match(path):
             return all_exercises
         if code in ["A", "M"] and exercise_re.match(path):
-            if not is_ignored_exercise(path):
+            if not should_ignore_exercise(path):
                 to_update.add(path)
         if code in ["M"] and util_re.match(path):
             return all_exercises
