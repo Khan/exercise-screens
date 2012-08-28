@@ -22,16 +22,46 @@ except ImportError:
     sys.exit(1)
 
 
+"""
+exercise-screens is a daemon living on KA's continuous integration machine
+that keeps an up-to-date S3 bucket of screenshots of every exercise in the
+khan-exercises repository. At a high level it consists of a Flask app, which
+receives GitHub web hook requests when someone pushes to master, and a
+singleton subprocess that asynchronously processes the changes recorded by
+the Flask app.
+
+An overview of the control flow:
+1. Someone pushes to master on the khan-exercises GitHub repo.
+2. GitHub POSTs to exercise-screens with information about the latest changes
+3. exercise-screens pulls the changes into its local copy of khan-exercises
+     and figures out what exercises changed since the last time it ran.
+4. For each of the exercises that changed, exercise-screens takes a new
+     screenshot and uploads it and a downsized version to Amazon S3.
+5. When exercise-screens is done processing the latest changes it writes to a
+     ".status" file which lets it pick up where it left off if it gets
+     interrupted.
+"""
+
+
 # TODO(dylan): HipChat notifications?
 
 
 REPO_URL = "https://github.com/Khan/khan-exercises"
 REPO_GIT_URL = "%s.git" % REPO_URL
 REPO = REPO_URL.split("/")[-1]
+# We tell PhantomJS to wait 20 seconds for the page to render before taking
+# a screenshot because MathJax is slooooow. There is a way to fire an event
+# once MathJax is done rendering but I wasn't able to get it working in
+# PhantomJS.
 RENDER_TIMEOUT_MS = 20000
+# This is the S3 bucket where the screenshots will be uploaded.
 S3_BUCKET = "ka-exercise-screenshots"
+# This port on localhost is where Flask serves the exercise static files and
+# PhantomJS fetches the exercise webpages.
 PORT = 5000
+# The resized thumbnails will be this many x this many pixels.
 SMALL_DIMENSION = 256
+# This is a whitelist of IP addresses that official GitHub web hooks come from.
 GITHUB_WEBHOOK_IPS = ["207.97.227.253", "50.57.128.197", "108.171.174.178"]
 
 
@@ -89,15 +119,16 @@ def worker(queue):
             # make a clone of the repository
             subprocess.check_call(["git", "clone", REPO_GIT_URL])
             os.chdir(REPO)
+        # grab a chronological list of commits to find the oldest and newest
+        rev_list = subprocess.check_output(["git", "rev-list", "HEAD"]).split()
+        oldest_commit, newest_commit = rev_list[-1], rev_list[0]
         # determine the correct commit range
         if before is None:
-            # if not specified, before is the earliest commit
-            rev_list = subprocess.check_output(
-                ["git", "rev-list", "--reverse", "HEAD"])
-            before = rev_list.split()[0]
+            # if not specified, before is the oldest commit to master
+            before = oldest_commit
         if after is None:
-            # if not specified, after is the latest commit
-            after = subprocess.check_output(["git", "rev-parse", "HEAD"])[:-1]
+            # if not specified, after is the newest commit to master
+            after = newest_commit
         # check out the latest revision to operate on
         subprocess.check_call(["git", "checkout", after])
         # get a list of exercises to update
@@ -110,9 +141,9 @@ def worker(queue):
             outfile.write(after)
 
 
-def ignored_exercise(exercise):
+def is_ignored_exercise(exercise):
     """Ignore khan-*.html in the exercises folder, they aren't exercises."""
-    return "khan" in exercise
+    return not exercise.endswith(".html") or "khan" in exercise
 
 
 def plan_updates(before, after):
@@ -135,9 +166,8 @@ def plan_updates(before, after):
 
     all_exercises = set()
     for f in os.listdir("exercises"):
-        if f.endswith(".html"):
-            if not ignored_exercise(f):
-                all_exercises.add(os.path.join("exercises", f))
+        if not is_ignored_exercise(f):
+            all_exercises.add(os.path.join("exercises", f))
 
     # look at what files have changed in the commit range
     #
@@ -156,7 +186,7 @@ def plan_updates(before, after):
         if code in ["A", "M", "D"] and global_re.match(path):
             return all_exercises
         if code in ["A", "M"] and exercise_re.match(path):
-            if not ignored_exercise(path):
+            if not is_ignored_exercise(path):
                 to_update.add(path)
         if code in ["M"] and util_re.match(path):
             return all_exercises
