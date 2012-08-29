@@ -4,6 +4,7 @@ import json
 import multiprocessing
 import os
 import re
+import socket
 import subprocess
 import sys
 
@@ -32,8 +33,9 @@ the Flask app.
 
 An overview of the control flow:
 1. Someone pushes to master on the khan-exercises GitHub repo.
-2. GitHub POSTs to exercise-screens with information about the latest changes
-     (see https://help.github.com/articles/post-receive-hooks)
+2. GitHub POSTs to exercise-screens a pair of SHA1s corresponding to the old
+     HEAD before the push and the new HEAD after the push. (For more about the
+     POST contents, see https://help.github.com/articles/post-receive-hooks)
 3. exercise-screens pulls the changes into its local copy of khan-exercises
      and figures out what exercises changed since the last time it ran.
 4. For each of the exercises that changed, exercise-screens takes a new
@@ -62,11 +64,8 @@ S3_BUCKET = "ka-exercise-screenshots"
 PORT = 5000
 # The resized thumbnails will be this many x this many pixels.
 SMALL_DIMENSION = 256
-# This is a whitelist of IP addresses that official GitHub web hooks come from.
-# The list comes from the web hook details GitHub provides at
-# https://github.com/Khan/khan-exercises/admin/hooks#generic_minibucket
-# (must be repository admin to view).
-GITHUB_WEBHOOK_IPS = ["207.97.227.253", "50.57.128.197", "108.171.174.178"]
+# Any web hook request we get must originate from this hostname
+WEBHOOK_ALLOWED_HOSTNAME = "github.com"
 
 
 app = Flask(__name__)
@@ -93,7 +92,8 @@ def hook():
     Payload format: https://help.github.com/articles/post-receive-hooks
     """
     # verify hook authenticity
-    if request.remote_addr not in GITHUB_WEBHOOK_IPS:
+    hostname, _, _ = socket.gethostbyaddr(request.remote_addr)
+    if not hostname.endswith(WEBHOOK_ALLOWED_HOSTNAME):
         abort(403)
     # verify payload authenticity
     try:
@@ -104,7 +104,8 @@ def hook():
         abort(403)
     # enqueue job for processing
     # queue is a global multiprocessing.Queue created in the main method below
-    queue.put((payload["before"], payload["after"])) # @Nolint
+    old_head, new_head = payload["before"], payload["after"]
+    queue.put((old_head, new_head)) # @Nolint
     return "ok"
 
 
@@ -112,7 +113,7 @@ def worker(queue):
     """Worker that pulls commit ranges from the queue and processes them."""
     while True:
         # block until a job is available
-        before, after = queue.get(block=True, timeout=None)
+        old_head, new_head = queue.get(block=True, timeout=None)
         # update the local copy of the repository
         if os.path.exists(REPO):
             # if a clone of the repo already exists, update it
@@ -123,28 +124,28 @@ def worker(queue):
             # make a clone of the repository
             subprocess.check_call(["git", "clone", REPO_GIT_URL])
             os.chdir(REPO)
-        if before is None or after is None:
+        if old_head is None or new_head is None:
             # grab chronological list of commits to find the oldest and newest
             rev_list = subprocess.check_output(
                 ["git", "rev-list", "HEAD"]).split()
             oldest_commit, newest_commit = rev_list[-1], rev_list[0]
             # determine the correct commit range
-            if before is None:
-                # if not specified, before is the oldest commit to master
-                before = oldest_commit
-            if after is None:
-                # if not specified, after is the newest commit to master
-                after = newest_commit
+            if old_head is None:
+                # if not specified, old_head is the oldest commit to master
+                old_head = oldest_commit
+            if new_head is None:
+                # if not specified, new_head is the newest commit to master
+                new_head = newest_commit
         # check out the latest revision to operate on
-        subprocess.check_call(["git", "checkout", after])
+        subprocess.check_call(["git", "checkout", new_head])
         # get a list of exercises to update
-        exercises_to_update = plan_updates(before, after)
+        exercises_to_update = plan_updates(old_head, new_head)
         # perform the updates
         for exercise in exercises_to_update:
             update(exercise)
         # mark the last commit processed
         with open("../.status", "w") as outfile:
-            outfile.write(after)
+            outfile.write(new_head)
 
 
 def should_ignore_exercise(exercise):
@@ -152,7 +153,7 @@ def should_ignore_exercise(exercise):
     return not exercise.endswith(".html") or "khan" in exercise
 
 
-def plan_updates(before, after):
+def plan_updates(old_head, new_head):
     """Looks at the git diff to make a plan for updating the screenshots.
 
     - If a global JS or CSS file is added, modified, or deleted, update all
@@ -163,8 +164,8 @@ def plan_updates(before, after):
     need to be updated
 
     Arguments:
-        before: SHA1 of the oldest commit in the push received by GitHub
-        after: SHA1 of the newest commit in the push received by GitHub
+        old_head: SHA1 of the oldest commit in the push received by GitHub
+        new_head: SHA1 of the newest commit in the push received by GitHub
     Returns:
         set of exercise filenames to update
     """
@@ -180,7 +181,7 @@ def plan_updates(before, after):
     # --name-status tells us each file's name and whether it was added (A),
     # modified (M), or deleted (D)
     diff = subprocess.check_output(
-        ["git", "diff", "--name-status", before, after])
+        ["git", "diff", "--name-status", old_head, new_head])
     diff = [line.split() for line in diff.split("\n")[:-1]]
 
     global_re = re.compile(r".*\.js|css/.*\.css|css/images/.*|images/.*")
