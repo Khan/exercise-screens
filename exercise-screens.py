@@ -124,18 +124,16 @@ def worker(queue):
             # make a clone of the repository
             subprocess.check_call(["git", "clone", REPO_GIT_URL])
             os.chdir(REPO)
-        if old_head is None or new_head is None:
-            # grab chronological list of commits to find the oldest and newest
-            rev_list = subprocess.check_output(
-                ["git", "rev-list", "HEAD"]).split()
-            oldest_commit, newest_commit = rev_list[-1], rev_list[0]
-            # determine the correct commit range
-            if old_head is None:
-                # if not specified, old_head is the oldest commit to master
-                old_head = oldest_commit
-            if new_head is None:
-                # if not specified, new_head is the newest commit to master
-                new_head = newest_commit
+        # determine the correct commit range
+        if old_head is None:
+            # if not specified, old_head is the magic SHA1 that represents
+            # an empty repository
+            old_head = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
+        if new_head is None:
+            # if not specified, new_head is the newest commit to master
+            head = subprocess.check_output(
+                ["git", "rev-parse", "HEAD"]).split()[0]
+            new_head = head
         # check out the latest revision to operate on
         subprocess.check_call(["git", "checkout", new_head])
         # get a list of exercises to update
@@ -164,8 +162,8 @@ def plan_updates(old_head, new_head):
     need to be updated
 
     Arguments:
-        old_head: SHA1 of the oldest commit in the push received by GitHub
-        new_head: SHA1 of the newest commit in the push received by GitHub
+        old_head: SHA1 of master's HEAD before GitHub received the push
+        new_head: SHA1 of master's HEAD after  GitHub received the push
     Returns:
         set of exercise filenames to update
     """
