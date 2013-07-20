@@ -44,3 +44,9 @@ Once your S3 credentials and bucket name are configured, simply run
 processing and how many errors it encounters. An error is not the end of the
 world; there currently exist some small inconsistencies in the Khan Academy
 content entities that cause some exercises to have URLs that don't exist.
+
+You might also be interested in setting up a
+[custom error document](http://docs.aws.amazon.com/AmazonS3/latest/dev/CustomErrorDocSupport.html)
+for your S3 bucket, which will let you serve a nice placeholder image instead
+of an ugly 404 in the event that someone tries to access a screenshot that
+doesn't exist.
