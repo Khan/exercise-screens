@@ -8,8 +8,6 @@ import threading
 from multiprocessing.pool import ThreadPool
 
 import requests
-import webkit2png
-
 
 DELAY = 5
 STDOUT_LOCK = threading.Lock()
