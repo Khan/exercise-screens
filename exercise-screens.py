@@ -19,7 +19,19 @@ except ImportError:
 
 DELAY = 5
 S3_BUCKET = "ka-exercise-screenshots"
+SQUARE_SIZE = 256
 STDOUT_LOCK = threading.Lock()
+
+
+def resize_image(image_path, resized_image_path):
+    # see http://www.imagemagick.org/Usage/thumbnails/#cut
+    resize_arg = "%sx%s^" % (SQUARE_SIZE, SQUARE_SIZE)
+    extent_arg = "%sx%s" % (SQUARE_SIZE, SQUARE_SIZE)
+    subprocess.check_call(
+        ["convert", "-resize", resize_arg, "-extent", extent_arg,
+        image_path, resized_image_path],
+        stdout=open(os.devnull, "w"),
+        stderr=open(os.devnull, "w"))
 
 
 def upload_image(name, path):
@@ -34,7 +46,7 @@ def upload_image(name, path):
 def process_exercise(exercise):
     (name, url) = exercise
     with STDOUT_LOCK:
-        print "Rendering %s" % name
+        print "Processing %s" % name
     try:
         output_dir = tempfile.mkdtemp()
         # Still need to shell out because PyObjC doesn't play nice with
@@ -52,9 +64,12 @@ def process_exercise(exercise):
             stdout=open(os.devnull, "w"),
             stderr=open(os.devnull, "w"))
         image_path = os.path.join(output_dir, "%s-full.png" % name)
-        # TODO: remove image border?
-        # TODO: save image at a few different sizes?
+        if not os.path.exists(image_path):
+            return False
+        resized_image_path = os.path.join(output_dir, "%s-square.png" % name)
+        resize_image(image_path, resized_image_path)
         upload_image("%s.png" % name, image_path)
+        upload_image("%s_%s.png" % (name, SQUARE_SIZE), resized_image_path)
         os.remove(image_path)
     except:
         return False
