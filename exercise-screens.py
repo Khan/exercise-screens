@@ -1,14 +1,45 @@
 #!/usr/bin/env python
 
-import multiprocessing
+import os
 import sys
+import subprocess
+import tempfile
+import threading
+from multiprocessing.pool import ThreadPool
 
 import requests
 import webkit2png
 
 
-def render_exercise(exercise_url):
-    print "Rendering %s" % exercise_url
+DELAY = 5
+STDOUT_LOCK = threading.Lock()
+
+
+def process_exercise(exercise):
+    (name, url) = exercise
+    with STDOUT_LOCK:
+        print "Rendering %s" % name
+    try:
+        output_dir = tempfile.mkdtemp()
+        # Still need to shell out because PyObjC doesn't play nice with
+        # multiprocessing or multithreading :(
+        subprocess.check_call([
+            "python",
+            "./webkit2png.py",
+            "--selector=#problemarea",
+            "--fullsize",
+            "--dir=%s" % output_dir,
+            "--filename=%s" % name,
+            "--delay=%s" % DELAY,
+            url
+        ],
+            stdout=open(os.devnull, "w"),
+            stderr=open(os.devnull, "w"))
+        filename = "%s-full.png" % name
+        # TODO: upload %(filename) to S3
+        # TODO: delete %(filename)
+    except:
+        return False
     return True
 
 
@@ -18,9 +49,12 @@ def main():
     if request.status_code != 200:
         print "Error: failed to fetch exercises"
         sys.exit(1)
-    exercise_urls = [e["ka_url"] for e in request.json()]
-    pool = multiprocessing.Pool()
-    results = pool.map(render_exercise, exercise_urls)
+    exercises = [(e["name"], e["ka_url"]) for e in request.json()]
+    pool = ThreadPool()
+    try:
+        results = pool.map(process_exercise, exercises)
+    except KeyboardInterrupt:
+        sys.exit(1)
     success_count = results.count(True)
     failure_count = len(results) - success_count
     print "Done (%s successes, %s failures)" % (success_count, failure_count)
