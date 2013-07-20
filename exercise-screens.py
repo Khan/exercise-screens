@@ -36,6 +36,8 @@ def process_exercise(exercise):
             stdout=open(os.devnull, "w"),
             stderr=open(os.devnull, "w"))
         image_path = os.path.join(output_dir, "%s-full.png" % name)
+        # TODO: remove image border?
+        # TODO: save image at a few different sizes?
         # TODO: upload %(image_path) to S3
         os.remove(image_path)
     except:
