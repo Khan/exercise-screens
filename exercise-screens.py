@@ -18,6 +18,7 @@ except ImportError:
 
 
 DELAY = 5
+OUTPUT_DIR = tempfile.mkdtemp()
 S3_BUCKET = "ka-exercise-screenshots"
 SQUARE_SIZE = 256
 STDOUT_LOCK = threading.Lock()
@@ -48,7 +49,6 @@ def process_exercise(exercise):
     with STDOUT_LOCK:
         print "Processing %s" % name
     try:
-        output_dir = tempfile.mkdtemp()
         # Still need to shell out because PyObjC doesn't play nice with
         # multiprocessing or multithreading :(
         subprocess.check_call([
@@ -56,17 +56,17 @@ def process_exercise(exercise):
             "./webkit2png.py",
             "--selector=#problemarea",
             "--fullsize",
-            "--dir=%s" % output_dir,
+            "--dir=%s" % OUTPUT_DIR,
             "--filename=%s" % name,
             "--delay=%s" % DELAY,
             url
         ],
             stdout=open(os.devnull, "w"),
             stderr=open(os.devnull, "w"))
-        image_path = os.path.join(output_dir, "%s-full.png" % name)
+        image_path = os.path.join(OUTPUT_DIR, "%s-full.png" % name)
         if not os.path.exists(image_path):
             return False
-        resized_image_path = os.path.join(output_dir, "%s-square.png" % name)
+        resized_image_path = os.path.join(OUTPUT_DIR, "%s-square.png" % name)
         resize_image(image_path, resized_image_path)
         upload_image("%s.png" % name, image_path)
         upload_image("%s_%s.png" % (name, SQUARE_SIZE), resized_image_path)
