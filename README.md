@@ -14,7 +14,7 @@ in various places on the site.
 
 For historical reasons, `exercise-screens` generates two versions of each
 screenshot. The first is a "full-size" screenshot that can be any dimensions
-but contains the entire `<div id="problemarea>`. The second is a cropped square
+but contains the entire `<div id="problemarea">`. The second is a cropped square
 screenshot whose dimensions are guaranteed to be 256 by 256 pixels. However,
 this behavior is easily customizable if you'd like differently sized output.
 
