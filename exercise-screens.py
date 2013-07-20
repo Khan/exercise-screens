@@ -4,9 +4,10 @@ import multiprocessing
 import sys
 
 import requests
+import webkit2png
 
 
-def process_exercise(exercise_url):
+def render_exercise(exercise_url):
     print "Rendering %s" % exercise_url
     return True
 
@@ -19,7 +20,7 @@ def main():
         sys.exit(1)
     exercise_urls = [e["ka_url"] for e in request.json()]
     pool = multiprocessing.Pool()
-    results = pool.map(process_exercise, exercise_urls)
+    results = pool.map(render_exercise, exercise_urls)
     success_count = results.count(True)
     failure_count = len(results) - success_count
     print "Done (%s successes, %s failures)" % (success_count, failure_count)
