@@ -52,7 +52,8 @@ def main():
     exercises = [(e["name"], e["ka_url"]) for e in request.json()]
     pool = ThreadPool()
     try:
-        results = pool.map(process_exercise, exercises)
+        # see http://stackoverflow.com/a/1408476
+        results = pool.map_async(process_exercise, exercises).get(99999)
     except KeyboardInterrupt:
         sys.exit(1)
     success_count = results.count(True)
