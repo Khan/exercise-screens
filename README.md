@@ -45,6 +45,16 @@ processing and how many errors it encounters. An error is not the end of the
 world; there currently exist some small inconsistencies in the Khan Academy
 content entities that cause some exercises to have URLs that don't exist.
 
+To run `exercise-screens` at regular intervals, you can set it up as a
+[LaunchAgent](http://paul.annesley.cc/2012/09/mac-os-x-launchd-is-cool/), which
+is like a cron job on OS X steroids. After customizing the example plist, do
+the following:
+
+    cp org.khanacademy.exercise-screens.plist.example ~/Library/LaunchAgents/org.khanacademy.exercise-screens.plist
+    launchctl load ~/Library/LaunchAgents/org.khanacademy.exercise-screens.plist
+
+and then `exercise-screens` will be executed periodically by the system.
+
 You might also be interested in setting up a
 [custom error document](http://docs.aws.amazon.com/AmazonS3/latest/dev/CustomErrorDocSupport.html)
 for your S3 bucket, which will let you serve a nice placeholder image instead
