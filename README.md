@@ -30,6 +30,7 @@ command `brew install imagemagick`.
 
     git clone https://github.com/Khan/exercise-screens.git
     cd exercise-screens
+    git submodule update --init
     [sudo] pip install -r requirements.txt
 
 Then customize the S3 bucket name in `exercise-screens.py` and create a file
