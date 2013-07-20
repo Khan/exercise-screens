@@ -35,9 +35,9 @@ def process_exercise(exercise):
         ],
             stdout=open(os.devnull, "w"),
             stderr=open(os.devnull, "w"))
-        filename = "%s-full.png" % name
-        # TODO: upload %(filename) to S3
-        # TODO: delete %(filename)
+        image_path = os.path.join(output_dir, "%s-full.png" % name)
+        # TODO: upload %(image_path) to S3
+        os.remove(image_path)
     except:
         return False
     return True
