@@ -24,13 +24,20 @@ SQUARE_SIZE = 256
 STDOUT_LOCK = threading.Lock()
 
 
-def resize_image(image_path, resized_image_path):
-    # see http://www.imagemagick.org/Usage/thumbnails/#cut
+def recolor_image(input_path, output_path, old_color, new_color):
+    subprocess.check_call(
+        ["convert", input_path,
+            "-opaque", old_color, "-fill", new_color, output_path],
+        stdout=open(os.devnull, "w"),
+        stderr=open(os.devnull, "w"))
+
+
+def resize_image(input_path, output_path):
     resize_arg = "%sx%s^" % (SQUARE_SIZE, SQUARE_SIZE)
     extent_arg = "%sx%s" % (SQUARE_SIZE, SQUARE_SIZE)
     subprocess.check_call(
         ["convert", "-resize", resize_arg, "-extent", extent_arg,
-        image_path, resized_image_path],
+            input_path, output_path],
         stdout=open(os.devnull, "w"),
         stderr=open(os.devnull, "w"))
 
@@ -66,6 +73,7 @@ def process_exercise(exercise):
         image_path = os.path.join(OUTPUT_DIR, "%s-full.png" % name)
         if not os.path.exists(image_path):
             return False
+        recolor_image(image_path, image_path, "rgb(247,247,247)", "white")
         resized_image_path = os.path.join(OUTPUT_DIR, "%s-square.png" % name)
         resize_image(image_path, resized_image_path)
         upload_image("%s.png" % name, image_path)
