@@ -17,7 +17,7 @@ except ImportError:
     sys.exit(1)
 
 
-DELAY = 5
+DELAY = 4
 OUTPUT_DIR = tempfile.mkdtemp()
 S3_BUCKET = "ka-exercise-screenshots"
 SQUARE_SIZE = 256
@@ -26,20 +26,23 @@ STDOUT_LOCK = threading.Lock()
 
 def recolor_image(input_path, output_path, old_color, new_color):
     subprocess.check_call(
-        ["convert", input_path,
-            "-opaque", old_color, "-fill", new_color, output_path],
-        stdout=open(os.devnull, "w"),
-        stderr=open(os.devnull, "w"))
+        ["convert", input_path, "-opaque", old_color, "-fill", new_color,
+            output_path])
 
 
-def resize_image(input_path, output_path):
-    resize_arg = "%sx%s^" % (SQUARE_SIZE, SQUARE_SIZE)
+def trim_image(input_path, output_path):
+    subprocess.check_call(
+        ["convert", input_path, "-trim", output_path])
+    subprocess.check_call(
+        ["convert", output_path, "-trim", output_path])
+
+
+def resize_image(input_path, output_path, bg_color):
+    resize_arg = "%sx%s>" % (SQUARE_SIZE, SQUARE_SIZE)
     extent_arg = "%sx%s" % (SQUARE_SIZE, SQUARE_SIZE)
     subprocess.check_call(
-        ["convert", "-resize", resize_arg, "-extent", extent_arg,
-            input_path, output_path],
-        stdout=open(os.devnull, "w"),
-        stderr=open(os.devnull, "w"))
+        ["convert", input_path, "-background", bg_color, "-gravity", "center",
+            "-resize", resize_arg, "-extent", extent_arg, output_path])
 
 
 def upload_image(name, path):
@@ -67,15 +70,14 @@ def process_exercise(exercise):
             "--filename=%s" % name,
             "--delay=%s" % DELAY,
             url
-        ],
-            stdout=open(os.devnull, "w"),
-            stderr=open(os.devnull, "w"))
+        ])
         image_path = os.path.join(OUTPUT_DIR, "%s-full.png" % name)
         if not os.path.exists(image_path):
             return False
         recolor_image(image_path, image_path, "rgb(247,247,247)", "white")
+        trim_image(image_path, image_path)
         resized_image_path = os.path.join(OUTPUT_DIR, "%s-square.png" % name)
-        resize_image(image_path, resized_image_path)
+        resize_image(image_path, resized_image_path, "white")
         upload_image("%s.png" % name, image_path)
         upload_image("%s_%s.png" % (name, SQUARE_SIZE), resized_image_path)
         os.remove(image_path)
