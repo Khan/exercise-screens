@@ -25,27 +25,29 @@ STDOUT_LOCK = threading.Lock()
 WEBKIT2PNG_PATH = os.path.join(
                     os.path.abspath(os.path.dirname(__file__)),
                     "webkit2png.py")
+IMAGEMAGICK_PATH = "/usr/local/bin/convert"
 
 
 def recolor_image(input_path, output_path, old_color, new_color):
     subprocess.check_call(
-        ["convert", input_path, "-opaque", old_color, "-fill", new_color,
-            output_path])
+        [IMAGEMAGICK_PATH, input_path, "-opaque", old_color, "-fill",
+            new_color, output_path])
 
 
 def trim_image(input_path, output_path):
     subprocess.check_call(
-        ["convert", input_path, "-trim", output_path])
+        [IMAGEMAGICK_PATH, input_path, "-trim", output_path])
     subprocess.check_call(
-        ["convert", output_path, "-trim", output_path])
+        [IMAGEMAGICK_PATH, output_path, "-trim", output_path])
 
 
 def resize_image(input_path, output_path, bg_color):
     resize_arg = "%sx%s>" % (SQUARE_SIZE, SQUARE_SIZE)
     extent_arg = "%sx%s" % (SQUARE_SIZE, SQUARE_SIZE)
     subprocess.check_call(
-        ["convert", input_path, "-background", bg_color, "-gravity", "center",
-            "-resize", resize_arg, "-extent", extent_arg, output_path])
+        [IMAGEMAGICK_PATH, input_path, "-background", bg_color, "-gravity",
+            "center", "-resize", resize_arg, "-extent", extent_arg,
+            output_path])
 
 
 def upload_image(name, path):
