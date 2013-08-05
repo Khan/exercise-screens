@@ -4,9 +4,11 @@
 <dict>
         <key>Label</key>
         <string>org.khanacademy.exercise-screens</string>
+        <key>WorkingDirectory</key>
+        <string>/Users/khanboard/code/exercise-screens</string>
         <key>ProgramArguments</key>
         <array>
-                <string>/Users/khanboard/code/exercise-screens/exercise-screens.py</string>
+                <string>exercise-screens.py</string>
         </array>
         <key>StartCalendarInterval</key>
         <dict>
