@@ -22,6 +22,9 @@ OUTPUT_DIR = tempfile.mkdtemp()
 S3_BUCKET = "ka-exercise-screenshots"
 SQUARE_SIZE = 256
 STDOUT_LOCK = threading.Lock()
+WEBKIT2PNG_PATH = os.path.join(
+                    os.path.abspath(os.path.dirname(__file__)),
+                    "webkit2png.py")
 
 
 def recolor_image(input_path, output_path, old_color, new_color):
@@ -63,14 +66,16 @@ def process_exercise(exercise):
         # multiprocessing or multithreading :(
         subprocess.check_call([
             "python",
-            "./webkit2png.py",
+            WEBKIT2PNG_PATH,
             "--selector=#problemarea",
             "--fullsize",
             "--dir=%s" % OUTPUT_DIR,
             "--filename=%s" % name,
             "--delay=%s" % DELAY,
             url
-        ])
+        ],
+            stdout=open(os.devnull, "w"),
+            stderr=open(os.devnull, "w"))
         image_path = os.path.join(OUTPUT_DIR, "%s-full.png" % name)
         if not os.path.exists(image_path):
             return False
