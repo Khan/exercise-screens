@@ -17,7 +17,7 @@ except ImportError:
     sys.exit(1)
 
 
-DELAY = 10
+DELAY = 4
 OUTPUT_DIR = tempfile.mkdtemp()
 S3_BUCKET = "ka-exercise-screenshots"
 SQUARE_SIZE = 256
@@ -46,7 +46,7 @@ def resize_image(input_path, output_path, bg_color):
     extent_arg = "%sx%s" % (SQUARE_SIZE, SQUARE_SIZE)
     subprocess.check_call(
         [IMAGEMAGICK_PATH, input_path, "-background", bg_color, "-gravity",
-            "center", "-resize", resize_arg, "-extent", extent_arg,
+            "center", "-resize", resize_arg, "+repage", "-extent", extent_arg,
             output_path])
 
 
