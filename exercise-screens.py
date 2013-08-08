@@ -30,8 +30,8 @@ IMAGEMAGICK_PATH = "/usr/local/bin/convert"
 
 def recolor_image(input_path, output_path, old_color, new_color):
     subprocess.check_call(
-        [IMAGEMAGICK_PATH, input_path, "-opaque", old_color, "-fill",
-            new_color, output_path])
+        [IMAGEMAGICK_PATH, input_path, "-fill", new_color, "-opaque",
+        old_color, output_path])
 
 
 def trim_image(input_path, output_path):
