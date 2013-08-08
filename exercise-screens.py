@@ -36,9 +36,9 @@ def recolor_image(input_path, output_path, old_color, new_color):
 
 def trim_image(input_path, output_path):
     subprocess.check_call(
-        [IMAGEMAGICK_PATH, input_path, "-trim", output_path])
+        [IMAGEMAGICK_PATH, input_path, "-trim", "+repage", output_path])
     subprocess.check_call(
-        [IMAGEMAGICK_PATH, output_path, "-trim", output_path])
+        [IMAGEMAGICK_PATH, output_path, "-trim", "+repage", output_path])
 
 
 def resize_image(input_path, output_path, bg_color):
@@ -46,7 +46,7 @@ def resize_image(input_path, output_path, bg_color):
     extent_arg = "%sx%s" % (SQUARE_SIZE, SQUARE_SIZE)
     subprocess.check_call(
         [IMAGEMAGICK_PATH, input_path, "-background", bg_color, "-gravity",
-            "center", "-resize", resize_arg, "+repage", "-extent", extent_arg,
+            "center", "-resize", resize_arg, "-extent", extent_arg,
             output_path])
 
 
@@ -88,6 +88,7 @@ def process_exercise(exercise):
         upload_image("%s.png" % name, image_path)
         upload_image("%s_%s.png" % (name, SQUARE_SIZE), resized_image_path)
         os.remove(image_path)
+        os.remove(resized_image_path)
     except:
         return False
     return True
