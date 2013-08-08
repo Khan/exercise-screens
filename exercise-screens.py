@@ -17,7 +17,7 @@ except ImportError:
     sys.exit(1)
 
 
-DELAY = 4
+DELAY = 10
 OUTPUT_DIR = tempfile.mkdtemp()
 S3_BUCKET = "ka-exercise-screenshots"
 SQUARE_SIZE = 256
